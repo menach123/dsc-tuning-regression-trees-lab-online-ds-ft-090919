@@ -26,16 +26,35 @@ import pandas as pd
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 %matplotlib inline
+# Import metrics
+from sklearn.metrics import r2_score, mean_squared_error 
 
-# Load the Boston housing dataset 
-data = None 
+# Load the Boston housing dataset
+data = pd.read_csv('boston.csv', index_col=0)
 
-# Print the first five rows 
-
-
+# Print the first five rows
+print(data.head())
+print("")
 # Print the dimensions of data
-
+print(data.shape)
 ```
+
+          crim    zn  indus  chas    nox     rm   age     dis  rad  tax  ptratio  \
+    1  0.00632  18.0   2.31     0  0.538  6.575  65.2  4.0900    1  296     15.3   
+    2  0.02731   0.0   7.07     0  0.469  6.421  78.9  4.9671    2  242     17.8   
+    3  0.02729   0.0   7.07     0  0.469  7.185  61.1  4.9671    2  242     17.8   
+    4  0.03237   0.0   2.18     0  0.458  6.998  45.8  6.0622    3  222     18.7   
+    5  0.06905   0.0   2.18     0  0.458  7.147  54.2  6.0622    3  222     18.7   
+    
+        black  lstat  medv  
+    1  396.90   4.98  24.0  
+    2  396.90   9.14  21.6  
+    3  392.83   4.03  34.7  
+    4  394.63   2.94  33.4  
+    5  396.90   5.33  36.2  
+    
+    (506, 14)
+    
 
 ## Identify features and target data 
 
@@ -55,10 +74,30 @@ In this lab, we will use three features from the Boston housing dataset: `'RM'`,
 
 ```python
 # Features and target data
-target = None
-features = None
-
+target = data['medv']
+features = data[['rm', 'lstat', 'ptratio']]
+print(data.medv.describe())
+print("")
+print(features.head())
 ```
+
+    count    506.000000
+    mean      22.532806
+    std        9.197104
+    min        5.000000
+    25%       17.025000
+    50%       21.200000
+    75%       25.000000
+    max       50.000000
+    Name: medv, dtype: float64
+    
+          rm  lstat  ptratio
+    1  6.575   4.98     15.3
+    2  6.421   9.14     17.8
+    3  7.185   4.03     17.8
+    4  6.998   2.94     18.7
+    5  7.147   5.33     18.7
+    
 
 ## Inspect correlations 
 
@@ -67,8 +106,21 @@ features = None
 
 
 ```python
-# Your code here 
+# Create scatter plots for each feature vs. target
+import matplotlib.pyplot as plt
+plt.figure(figsize=(20, 5))
+for i, col in enumerate(features.columns):
+    plt.subplot(1, 3, i+1)
+    plt.plot(data[col], target, 'o')
+    plt.title(col)
+    plt.xlabel(col)
+    plt.ylabel('Prices')
+    plt.tight_layout()
 ```
+
+
+![png](index_files/index_7_0.png)
+
 
 ## Create evaluation metrics
 
@@ -77,31 +129,32 @@ features = None
 
 
 ```python
-# Import metrics
-
-
 # Define the function
 def performance(y_true, y_predict):
     """ Calculates and returns the performance score between 
         true and predicted values based on the metric chosen. """
     
     # Calculate the r2 score between 'y_true' and 'y_predict'
-    
+    r2 = r2_score(y_true, y_predict)
     
     # Calculate the mean squared error between 'y_true' and 'y_predict'
-    
+    mse = mean_squared_error(y_true, y_predict)
     
     # Return the score
-    
-    pass
-
+    return [r2, mse]
 
 # Test the function
 score = performance([3, -0.5, 2, 7, 4.2], [2.5, 0.0, 2.1, 7.8, 5.3])
 score
-
 # [0.9228556485355649, 0.4719999999999998]
 ```
+
+
+
+
+    [0.9228556485355649, 0.4719999999999998]
+
+
 
 ## Split the data into training and test sets
 
@@ -113,7 +166,8 @@ score
 from sklearn.model_selection import train_test_split 
 
 # Split the data into training and test subsets
-x_train, x_test, y_train, y_test = None
+x_train, x_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state=42)
+
 ```
 
 ## Grow a vanilla regression tree
@@ -126,24 +180,29 @@ x_train, x_test, y_train, y_test = None
 
 
 ```python
-# Import DecisionTreeRegressor
-
+# Import DecisionTreeRegressor
+from sklearn.tree import DecisionTreeRegressor
 
 # Instantiate DecisionTreeRegressor 
-regressor = None
+regressor = DecisionTreeRegressor(random_state=45)
 
 # Fit the model to training data
-
+regressor.fit(x_train, y_train)
 
 # Make predictions on the test data
-y_pred = None
+y_pred = regressor.predict(x_test)
 
 # Calculate performance using the performance() function 
-score = None
+score = performance(y_test, y_pred)
 score
-
-# [0.47097115950374013, 38.795686274509805]  - R2, MSE
 ```
+
+
+
+
+    [0.47097115950374013, 38.795686274509805]
+
+
 
 ## Hyperparameter tuning (I)
 
@@ -156,8 +215,42 @@ score
 
 
 ```python
-# Your code here 
+# Identify the optimal tree depth for given data
+max_depths = np.linspace(1, 30, 30, endpoint=True)
+mse_results = []
+r2_results = []
+
+for max_depth in max_depths:
+    regressor = DecisionTreeRegressor(max_depth=max_depth, random_state=45)
+    regressor.fit(x_train, y_train)
+    y_pred = regressor.predict(x_test)
+    score = performance(y_test, y_pred)
+    r2_results.append(score[0])
+    mse_results.append(score[1])
+
+plt.figure(figsize=(12, 6))
+plt.plot(max_depths, r2_results, 'b', label='R2')
+plt.vlines(6,.7,.76, colors='g')
+plt.xlabel('Tree Depth')
+plt.ylabel('R-squared')
+plt.legend()
+plt.show()
+plt.figure(figsize=(12, 6))
+plt.plot(max_depths, mse_results, 'r', label='MSE')
+plt.vlines(6,10,30, colors='g')
+plt.xlabel('Tree Depth')
+plt.ylabel('MSE')
+plt.legend()
+plt.show()
 ```
+
+
+![png](index_files/index_15_0.png)
+
+
+
+![png](index_files/index_15_1.png)
+
 
 ## Hyperparameter tuning (II)
 
@@ -168,8 +261,40 @@ score
 
 
 ```python
-# Your code here 
+# Identify the optimal minimum split size for given data
+min_samples_splits = np.arange(2, 11)
+mse_results = []
+r2_results = []
+
+for min_samples_split in min_samples_splits:
+    regressor = DecisionTreeRegressor(min_samples_split=int(min_samples_split), random_state=45)
+    regressor.fit(x_train, y_train)
+    y_pred = regressor.predict(x_test)
+    score = performance(y_test, y_pred)
+    r2_results.append(score[0])
+    mse_results.append(score[1])
+
+plt.figure(figsize=(12, 6))
+plt.plot(min_samples_splits, r2_results, 'b', label='R2')
+plt.vlines(5,.6,.65,colors='g')
+plt.xlabel('Min Split Size')
+plt.ylabel('R-squared')
+plt.show()
+plt.figure(figsize=(12, 6))
+plt.plot(min_samples_splits, mse_results, 'r', label='MSE')
+plt.vlines(5,.6,.65,colors='g')
+plt.xlabel('Min Split Size')
+plt.ylabel('R-squared')
+plt.show()
 ```
+
+
+![png](index_files/index_17_0.png)
+
+
+
+![png](index_files/index_17_1.png)
+
 
 # Run the *optimized* model 
 
